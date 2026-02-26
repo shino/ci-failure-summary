@@ -17,3 +17,11 @@ jobs:
           go-version-file: go.mod
       - name: Run
         run: go run main.go
+
+  check-failures:
+    needs: [run]
+    if: failure()
+    permissions:
+      contents: read
+      actions: read
+    uses: ./.github/workflows/check-failures.yml
