@@ -71,7 +71,7 @@ jobs:
           # If --log-failed was skipped or returned empty, try alternatives
           if [[ ! -s "$log_file" ]]; then
             if [[ "$run_status" != "completed" ]]; then
-              echo "::notice::Run is still in progress — skipping gh run view --log-failed, using per-job API"
+              : # expected for workflow_call within the same run
             elif [[ -s "$log_err" ]]; then
               echo "::warning::gh run view --log-failed produced no output: $(cat "$log_err")"
             else
@@ -107,7 +107,7 @@ jobs:
             done <<< "$failed_jobs"
 
             if [[ -s "$log_file" ]]; then
-              echo "::notice::Fetched per-job logs via REST API ($(wc -l < "$log_file") lines)"
+              : # per-job logs fetched successfully
             else
               # Fallback 2: download run-level log archive
               log_zip=$(mktemp -u).zip
