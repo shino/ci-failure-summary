@@ -29,7 +29,7 @@ jobs:
           RUN_ID="${INPUT_RUN_ID:-$GITHUB_RUN_ID}"
 
           # --- fetch run metadata -----------------------------------------------
-          run_json=$(gh run view "$RUN_ID" --json 'createdAt,url,jobs,name')
+          run_json=$(gh run view "$RUN_ID" --json 'createdAt,url,jobs,name,status')
 
           wf_name=$(echo "$run_json" | jq -r '.name // "Unknown"')
           url=$(echo "$run_json" | jq -r '.url')
@@ -59,11 +59,20 @@ jobs:
           # --- get failed logs ----------------------------------------------------
           log_file=$(mktemp)
           log_err=$(mktemp)
-          gh run view "$RUN_ID" --log-failed > "$log_file" 2> "$log_err" || true
+          run_status=$(echo "$run_json" | jq -r '.status // "unknown"')
 
-          # If --log-failed returned empty or failed, try alternatives
+          # Only attempt gh run view --log-failed when the run is completed;
+          # for in-progress runs (workflow_call within the same run) the
+          # command always fails, so skip it to avoid a noisy warning.
+          if [[ "$run_status" == "completed" ]]; then
+            gh run view "$RUN_ID" --log-failed > "$log_file" 2> "$log_err" || true
+          fi
+
+          # If --log-failed was skipped or returned empty, try alternatives
           if [[ ! -s "$log_file" ]]; then
-            if [[ -s "$log_err" ]]; then
+            if [[ "$run_status" != "completed" ]]; then
+              echo "::notice::Run is still in progress — skipping gh run view --log-failed, using per-job API"
+            elif [[ -s "$log_err" ]]; then
               echo "::warning::gh run view --log-failed produced no output: $(cat "$log_err")"
             else
               echo "::warning::gh run view --log-failed produced no output (no stderr either)"
